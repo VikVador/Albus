@@ -99,5 +99,5 @@ def nanmean(
         torch.Size([7, 2, 128, 256])
     """
     # Unlike an empty `reduce`, which asks for pointwise values, `torch.nanmean(dim=())`
-    # reduces over all axes.
+    # reduces over all axes
     return x if len(dim) == 0 else x.nanmean(dim=dim, keepdim=keepdim)

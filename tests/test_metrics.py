@@ -109,7 +109,7 @@ def test_crps_matches_brute_force() -> None:
                 out[t, c] = term1 - term2 / (2 * N * (N - 1))
         return out
 
-    # Reduce over a dummy singleton axis, so C is preserved for a direct comparison.
+    # Reduce over a dummy singleton axis, so C is preserved for a direct comparison
     crps = continuous_ranked_probability_score(
         x.unsqueeze(-1), y.unsqueeze(-1), dims="T N C Z", ensemble="N", reduce="Z"
     )

@@ -80,27 +80,21 @@ def hypoxia(
     x = x.reshape(n_kept, -1).cpu()
     y = y.reshape(n_kept, -1).cpu()
 
-    accuracy = torch.full((n_kept,), torch.nan)
-    balanced_accuracy = torch.full((n_kept,), torch.nan)
-    f1 = torch.full((n_kept,), torch.nan)
-    precision = torch.full((n_kept,), torch.nan)
-    recall = torch.full((n_kept,), torch.nan)
-
+    scores = {
+        "accuracy": accuracy_score,
+        "balanced_accuracy": balanced_accuracy_score,
+        "f1": lambda true, pred: f1_score(true, pred, zero_division=0),
+        "precision": lambda true, pred: precision_score(true, pred, zero_division=0),
+        "recall": lambda true, pred: recall_score(true, pred, zero_division=0),
+    }
+    out = {name: torch.full((n_kept,), torch.nan) for name in scores}
     if thresholds_curve is not None:
-        n_curve = len(thresholds_curve)
-        roc_fpr = torch.full((n_curve, n_kept), torch.nan)
-        roc_tpr = torch.full((n_curve, n_kept), torch.nan)
-        pr_precision = torch.full((n_curve, n_kept), torch.nan)
-        pr_recall = torch.full((n_curve, n_kept), torch.nan)
-        roc_auc = torch.full((n_kept,), torch.nan)
-        pr_auc = torch.full((n_kept,), torch.nan)
+        curves = ("roc_fpr", "roc_tpr", "pr_precision", "pr_recall")
+        out |= {name: torch.full((len(thresholds_curve), n_kept), torch.nan) for name in curves}
+        out |= {name: torch.full((n_kept,), torch.nan) for name in ("roc_auc", "pr_auc")}
 
-    iterator = (
-        tqdm(range(n_kept), desc="Generating Curves", leave=False)
-        if thresholds_curve is not None
-        else range(n_kept)
-    )
-    for i in iterator:
+    curves_off = thresholds_curve is None
+    for i in tqdm(range(n_kept), desc="Generating Curves", leave=False, disable=curves_off):
         valid = ~x[i].isnan() & ~y[i].isnan()
         x_i, y_i = x[i, valid], y[i, valid]
         if x_i.numel() == 0:
@@ -108,14 +102,10 @@ def hypoxia(
 
         x_true = (x_i < x_threshold).long().numpy()
         y_pred = (y_i < y_threshold).long().numpy()
+        for name, score in scores.items():
+            out[name][i] = score(x_true, y_pred)
 
-        accuracy[i] = accuracy_score(x_true, y_pred)
-        balanced_accuracy[i] = balanced_accuracy_score(x_true, y_pred)
-        f1[i] = f1_score(x_true, y_pred, zero_division=0)
-        precision[i] = precision_score(x_true, y_pred, zero_division=0)
-        recall[i] = recall_score(x_true, y_pred, zero_division=0)
-
-        if thresholds_curve is None:
+        if curves_off:
             continue
 
         for t, threshold in enumerate(thresholds_curve):
@@ -124,30 +114,14 @@ def hypoxia(
             fp = ((y_pred_t == 1) & (x_true == 0)).sum()
             tn = ((y_pred_t == 0) & (x_true == 0)).sum()
             fn = ((y_pred_t == 0) & (x_true == 1)).sum()
-            roc_tpr[t, i] = tp / (tp + fn) if (tp + fn) > 0 else float("nan")
-            roc_fpr[t, i] = fp / (fp + tn) if (fp + tn) > 0 else float("nan")
-            pr_precision[t, i] = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-            pr_recall[t, i] = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            out["roc_tpr"][t, i] = tp / (tp + fn) if (tp + fn) > 0 else torch.nan
+            out["roc_fpr"][t, i] = fp / (fp + tn) if (fp + tn) > 0 else torch.nan
+            out["pr_precision"][t, i] = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            out["pr_recall"][t, i] = tp / (tp + fn) if (tp + fn) > 0 else 0.0
 
-        order = roc_fpr[:, i].argsort()
-        roc_auc[i] = float(auc(roc_fpr[order, i], roc_tpr[order, i]))
-        order = pr_recall[:, i].argsort()
-        pr_auc[i] = float(auc(pr_recall[order, i], pr_precision[order, i]))
+        fpr, tpr = out["roc_fpr"][:, i], out["roc_tpr"][:, i]
+        out["roc_auc"][i] = float(auc(fpr[fpr.argsort()], tpr[fpr.argsort()]))
+        precision, recall = out["pr_precision"][:, i], out["pr_recall"][:, i]
+        out["pr_auc"][i] = float(auc(recall[recall.argsort()], precision[recall.argsort()]))
 
-    out = {
-        "accuracy": accuracy.reshape(kept_shape),
-        "balanced_accuracy": balanced_accuracy.reshape(kept_shape),
-        "f1": f1.reshape(kept_shape),
-        "precision": precision.reshape(kept_shape),
-        "recall": recall.reshape(kept_shape),
-    }
-    if thresholds_curve is not None:
-        out |= {
-            "roc_fpr": roc_fpr.reshape(n_curve, *kept_shape),
-            "roc_tpr": roc_tpr.reshape(n_curve, *kept_shape),
-            "roc_auc": roc_auc.reshape(kept_shape),
-            "pr_precision": pr_precision.reshape(n_curve, *kept_shape),
-            "pr_recall": pr_recall.reshape(n_curve, *kept_shape),
-            "pr_auc": pr_auc.reshape(kept_shape),
-        }
-    return out
+    return {name: value.reshape(*value.shape[:-1], *kept_shape) for name, value in out.items()}

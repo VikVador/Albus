@@ -84,8 +84,13 @@ def save(fig: plt.Figure, name: str) -> None:
         fig  : Figure to save.
         name : Name of the file, without extension.
     """
-    fig.savefig(IMAGES / f"{name}.svg", metadata={"Date": None})
+    path = IMAGES / f"{name}.svg"
+    fig.savefig(path, metadata={"Date": None})
     plt.close(fig)
+
+    # Matplotlib leaves trailing spaces, which the pre-commit hooks reject
+    lines = path.read_text().splitlines()
+    path.write_text("\n".join(line.rstrip() for line in lines) + "\n")
 
 
 def main() -> None:

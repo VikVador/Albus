@@ -27,7 +27,6 @@ root = pathlib.Path(albus.__file__).parents[1]
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "sphinx.ext.githubpages",
     "sphinx.ext.intersphinx",
     "sphinx.ext.linkcode",
     "sphinx.ext.napoleon",
@@ -46,7 +45,6 @@ autodoc_typehints_format = "short"
 autosummary_ignore_module_all = False
 
 intersphinx_mapping = {
-    "numpy": ("https://numpy.org/doc/stable", None),
     "python": ("https://docs.python.org/3", None),
     "torch": ("https://docs.pytorch.org/docs/stable", None),
 }
@@ -112,7 +110,6 @@ html_css_files = [
     "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
 ]
 html_show_sourcelink = False
-html_sourcelink_suffix = ""
 html_static_path = ["static"]
 html_theme = "furo"
 html_theme_options = {
@@ -135,7 +132,6 @@ html_theme_options = {
         "color-api-pre-name": "#a6e22e",
     },
     "sidebar_hide_name": True,
-    "top_of_page_buttons": ["view"],
 }
 html_title = project
 pygments_style = "sphinx"
