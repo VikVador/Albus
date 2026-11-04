@@ -20,7 +20,7 @@ The :mod:`albus` package is installable from its repository via `pip`.
 
    pip install git+https://github.com/VikVador/albus
 
-For a local editable install with all optional dependencies (notebooks, linting), create an environment
+For a local editable install with all optional dependencies (documentation, figures, tests, linting), create an environment
 
 .. code-block:: console
 

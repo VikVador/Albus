@@ -164,7 +164,7 @@ def skill(
         torch.Size([7, 2])
     """
     # Masked entries are NaN in the ensemble mean, so they are ignored without masking `x`,
-    # whose shape may not match that of `mask`.
+    # whose shape may not match that of `mask`
     y_mean = apply_mask(y, mask).nanmean(dim=axes(dims, ensemble)[0])
     return root_mean_square_error(x, y_mean, drop(dims, ensemble), reduce)
 
@@ -293,7 +293,7 @@ def continuous_ranked_probability_score(
         torch.Size([7, 2])
     """
     # Masked entries are NaN in `y`, so they are ignored without masking `x`,
-    # whose shape may not match that of `mask`.
+    # whose shape may not match that of `mask`
     n_axis = axes(dims, ensemble)[0]
     n = y.shape[n_axis]
     y = apply_mask(y, mask)
