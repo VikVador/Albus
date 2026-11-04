@@ -59,7 +59,7 @@ Every metric takes PyTorch tensors and describes their shape with named axes. Th
 Albus is organized in a few modules.
 
 * :mod:`albus.metrics` holds the generic metrics: the (root) mean square error, the standard deviation, the skill and spread of an ensemble with their ratio, the continuous ranked probability score (CRPS) and the isotropic power spectrum. They are also available from :mod:`albus` directly.
-* :mod:`albus.frechet` holds the Fréchet distance between two sets of samples and the Fréchet inception distance (FID) between two sets of 2D fields, e.g. to compare reconstructions with the ground truth.
+* :mod:`albus.visuals` holds metrics borrowed from image quality assessment, applied to 2D fields: the peak signal-to-noise ratio (PSNR) and the structural similarity (SSIM) of a prediction, and the Fréchet and kernel inception distances (FID, KID) between two sets of fields, e.g. to compare reconstructions with the ground truth.
 * :mod:`albus.ocean` holds the metrics specific to the ocean, such as hypoxia detection scores (accuracy, precision, recall, F1, ROC and PR curves) in :mod:`albus.ocean.oxygen`.
 * :mod:`albus.tools` holds the helpers shared by the metrics: masking, named axes and NaN-aware averaging.
 
