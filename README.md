@@ -11,7 +11,7 @@ A self-contained tutorial is available as a Jupyter notebook. It loads a sample 
 
 ➜ [`notebook/demo.ipynb`](notebook/demo.ipynb)
 
-The documentation, with the full API reference, is online at ➜ [albus.readthedocs.io](https://albus.readthedocs.io)
+The documentation, with the full API reference, is online at ➜ [albus-metrics.readthedocs.io](https://albus-metrics.readthedocs.io)
 
 <hr style="color:#808080;">
 <p align="center"><b>I N S T A L L A T I O N</b></p>

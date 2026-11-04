@@ -31,7 +31,7 @@ docs = [
 ]
 
 [project.urls]
-documentation = "https://albus.readthedocs.io"
+documentation = "https://albus-metrics.readthedocs.io"
 source = "https://github.com/VikVador/albus"
 
 [tool.ruff]
