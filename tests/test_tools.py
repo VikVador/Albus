@@ -32,6 +32,11 @@ def test_drop() -> None:
     assert drop("T N C Y X", "N") == "T C Y X"
 
 
+def test_drop_several_names() -> None:
+    r"""Removes every named axis from a dims string, whatever their order."""
+    assert drop("T N C Y X", "X N Y") == "T C"
+
+
 def test_drop_missing_name_is_noop() -> None:
     r"""Leaves the dims string unchanged when the axis to drop is not present."""
     assert drop("T C Y X", "N") == "T C Y X"
