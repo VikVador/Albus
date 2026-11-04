@@ -134,9 +134,10 @@ html_theme_options = {
         "color-api-name": "#a6e22e",
         "color-api-pre-name": "#a6e22e",
     },
+    "sidebar_hide_name": True,
     "top_of_page_buttons": ["view"],
 }
-html_title = f"{project} {version}"
+html_title = project
 pygments_style = "sphinx"
 pygments_dark_style = "monokai"
 rst_prolog = """

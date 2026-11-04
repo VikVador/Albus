@@ -69,6 +69,18 @@ mjx-container[display="true"] {
     margin: 0.125rem 0 !important;
 }
 
+/* Home page, the banner replaces the title */
+
+section#albus > h1 {
+    display: none;
+}
+
+/* Header and sidebar, without the name of the package (the banner shows it) */
+
+.mobile-header .header-center .brand {
+    display: none;
+}
+
 /* Sidebar */
 
 .sidebar-drawer {
