@@ -126,8 +126,8 @@ def hypoxia(
             fn = ((y_pred_t == 0) & (x_true == 1)).sum()
             roc_tpr[t, i] = tp / (tp + fn) if (tp + fn) > 0 else float("nan")
             roc_fpr[t, i] = fp / (fp + tn) if (fp + tn) > 0 else float("nan")
-            pr_precision[t, i] = precision_score(x_true, y_pred_t, zero_division=0)
-            pr_recall[t, i] = recall_score(x_true, y_pred_t, zero_division=0)
+            pr_precision[t, i] = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            pr_recall[t, i] = tp / (tp + fn) if (tp + fn) > 0 else 0.0
 
         order = roc_fpr[:, i].argsort()
         roc_auc[i] = float(auc(roc_fpr[order, i], roc_tpr[order, i]))

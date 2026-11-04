@@ -50,6 +50,8 @@ def axes(
         (3, 4)
     """
     positions = {name: axis for axis, name in enumerate(dims.split())}
+    for name in names.split():
+        assert name in positions, f"ERROR - Axis '{name}' is not in dims '{dims}'."
     return tuple(positions[name] for name in names.split())
 
 

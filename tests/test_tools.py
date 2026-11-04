@@ -1,5 +1,6 @@
 r"""Tests for albus.tools."""
 
+import pytest
 import torch
 
 from albus.tools import *
@@ -18,6 +19,12 @@ def test_axes_single() -> None:
 def test_axes_reordered() -> None:
     r"""Resolution follows the order of `names`, not the order of `dims`."""
     assert axes("T N C Y X", "X Y") == (4, 3)
+
+
+def test_axes_unknown_name() -> None:
+    r"""Raises an explicit error when a requested axis is not in `dims`."""
+    with pytest.raises(AssertionError, match="Axis 'N' is not in dims"):
+        axes("T C Y X", "N")
 
 
 def test_drop() -> None:
