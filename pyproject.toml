@@ -37,7 +37,6 @@ source = "https://github.com/VikVador/albus"
 
 [tool.ruff]
 line-length = 99
-exclude = ["notebook/"]
 
 [tool.ruff.lint]
 extend-select = ["ANN", "B", "I", "UP", "W"]

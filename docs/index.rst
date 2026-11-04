@@ -1,6 +1,10 @@
 Albus
 =====
 
+.. image:: ../assets/banner.svg
+   :alt: Albus
+   :width: 100%
+
 Albus is a lightweight package that implements a library of metrics for evaluating neural emulators and generative priors of dynamical systems, spanning physics and biogeochemistry, from ocean to atmosphere. It covers several kinds of assessment:
 
 * the **raw predictive skill of a neural emulator**, with errors against the ground truth;
@@ -56,22 +60,29 @@ Every metric takes PyTorch tensors and describes their shape with named axes. Th
 
    ratio.shape  # torch.Size([7, 2]), one value per lead time and channel
 
-Albus is organized in a few modules.
+Albus is organized in a few modules, each with its own tutorial.
 
-* :mod:`albus.metrics` holds the generic metrics: the (root) mean square error, the standard deviation, the skill and spread of an ensemble with their ratio, the continuous ranked probability score (CRPS) and the isotropic power spectrum. They are also available from :mod:`albus` directly.
-* :mod:`albus.visuals` holds metrics borrowed from image quality assessment, applied to 2D fields: the peak signal-to-noise ratio (PSNR) and the structural similarity (SSIM) of a prediction, and the Fréchet and kernel inception distances (FID, KID) between two sets of fields, e.g. to compare reconstructions with the ground truth.
-* :mod:`albus.ocean` holds the metrics specific to the ocean, such as hypoxia detection scores (accuracy, precision, recall, F1, ROC and PR curves) in :mod:`albus.ocean.oxygen`.
+* :mod:`albus.metrics` holds the generic metrics: the (root) mean square error, the standard deviation, the skill and spread of an ensemble with their ratio, the continuous ranked probability score (CRPS) and the isotropic power spectrum. They are also available from :mod:`albus` directly. ➜ :doc:`tutorial <tutorials/metrics>`
+* :mod:`albus.ocean` holds the metrics specific to the ocean, such as hypoxia detection scores (accuracy, precision, recall, F1, ROC and PR curves) in :mod:`albus.ocean.oxygen`. ➜ :doc:`tutorial <tutorials/ocean>`
+* :mod:`albus.visuals` holds metrics borrowed from image quality assessment, applied to 2D fields: the peak signal-to-noise ratio (PSNR) and the structural similarity (SSIM) of a prediction, and the Fréchet and kernel inception distances (FID, KID) between two sets of fields. ➜ :doc:`tutorial <tutorials/visuals>`
 * :mod:`albus.tools` holds the helpers shared by the metrics: masking, named axes and NaN-aware averaging.
 
-For more information, check out the :doc:`tutorial <../tutorials>` or the :doc:`API <../api>`.
+For more information, check out the :doc:`tutorials <tutorials>` or the :doc:`API <api>`.
 
 .. toctree::
-    :caption: albus
+    :caption: Tutorials
     :hidden:
-    :maxdepth: 2
 
-    tutorials.rst
-    api.rst
+    Overview <tutorials>
+    tutorials/metrics
+    tutorials/ocean
+    tutorials/visuals
+
+.. toctree::
+    :caption: Reference
+    :hidden:
+
+    api
 
 .. toctree::
     :caption: Development

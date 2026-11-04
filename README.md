@@ -7,4 +7,4 @@
 <p align="center"><b>D O C U M E N T A T I O N</b></p>
 <hr style="color:#808080;">
 
-The installation, a tutorial notebook and the API reference are online at ➜ [albus-metrics.readthedocs.io](https://albus-metrics.readthedocs.io)
+The installation, the tutorials and the API reference are online at ➜ [albus-metrics.readthedocs.io](https://albus-metrics.readthedocs.io)
