@@ -7,6 +7,7 @@ API
    :toctree: api
    :recursive:
 
+   albus.frechet
    albus.metrics
    albus.ocean
    albus.tools

@@ -9,6 +9,7 @@ requires-python = ">=3.10"
 dependencies = [
   "scikit-learn>=1.5",
   "torch>=2.5",
+  "torchvision>=0.20",
   "tqdm>=4.66",
 ]
 
@@ -56,6 +57,8 @@ section-order = ["future", "third-party", "first-party", "local-folder"]
 preview = true
 
 [tool.pytest.ini_options]
+addopts = "-m 'not integration'"
+markers = ["integration: needs a download (e.g. pretrained weights), run with -m integration"]
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
