@@ -50,27 +50,31 @@ def axes(
         (3, 4)
     """
     positions = {name: axis for axis, name in enumerate(dims.split())}
+    for name in names.split():
+        assert name in positions, f"ERROR - Axis '{name}' is not in dims '{dims}'."
     return tuple(positions[name] for name in names.split())
 
 
 def drop(
     dims: str,
-    name: str,
+    names: str,
 ) -> str:
-    r"""Remove a named axis from a string of axis names.
+    r"""Remove named axes from a string of axis names.
 
     Arguments:
-        dims : Space-separated axis names describing the shape of a tensor, e.g. "T N C Y X".
-        name : Axis name to remove, e.g. "N".
+        dims  : Space-separated axis names describing the shape of a tensor, e.g. "T N C Y X".
+        names : Space-separated axis names to remove, e.g. "N" or "N Y X".
 
     Returns:
-        `dims` without `name`.
+        `dims` without `names`.
 
     Example:
         >>> drop("T N C Y X", "N")
         'T C Y X'
+        >>> drop("T N C Y X", "N Y X")
+        'T C'
     """
-    return " ".join(axis for axis in dims.split() if axis != name)
+    return " ".join(axis for axis in dims.split() if axis not in names.split())
 
 
 def nanmean(

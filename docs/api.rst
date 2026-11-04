@@ -10,3 +10,4 @@ API
    albus.metrics
    albus.ocean
    albus.tools
+   albus.visuals
