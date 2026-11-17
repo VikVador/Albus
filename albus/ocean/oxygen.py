@@ -21,7 +21,6 @@ from tqdm import tqdm
 from albus.tools import apply_mask, axes
 
 
-# fmt: off
 def hypoxia(
     x: Tensor,
     y: Tensor,
@@ -31,23 +30,24 @@ def hypoxia(
     thresholds_curve: list[float] | None = None,
     mask: Tensor | None = None,
 ) -> dict[str, Tensor]:
-    r"""Compute classification metrics for a hypoxia (oxygen < threshold) detection problem.
+    r"""Compute hypoxia detection scores (oxygen below a threshold), ignoring masked entries.
+
+    Formula:
+        Hypoxia = 𝟙[O₂ < threshold]
 
     Arguments:
         x                : Ground truth tensor, broadcastable with `y`.
         y                : Predicted tensor.
-        dims             : Space-separated axis names describing the shape of `y`, e.g. "T N C Y X".
-        reduce           : Space-separated subset of `dims` to flatten and score jointly, e.g. "N Y X".
-        thresholds       : [x_threshold, y_threshold], applied to `x` and `y` respectively.
-        thresholds_curve : Thresholds swept over `y` to build the ROC/precision-recall curves.
-        mask             : Boolean-like tensor, broadcastable with `x`, zero where entries are invalid.
+        dims             : Space-separated axis names describing the shape of `y`, e.g. "T C Y X".
+        reduce           : Space-separated subset of `dims` to score over, e.g. "Y X".
+        thresholds       : Hypoxia thresholds [x_threshold, y_threshold] for `x` and `y`.
+        thresholds_curve : Thresholds swept over `y` to build the ROC and PR curves.
+        mask             : Boolean-like tensor, broadcastable with `y`, zero where invalid.
 
     Returns:
-        A dict of tensors, each with the axes in `reduce` collapsed:
-        - `accuracy`, `balanced_accuracy`, `f1`, `precision`, `recall`.
-        - if `thresholds_curve` is given: `roc_fpr`, `roc_tpr`, `roc_auc`,
-          `pr_precision`, `pr_recall`, `pr_auc` (the curves stacked along a
-          leading axis of size `len(thresholds_curve)`).
+        Dict of `accuracy`, `balanced_accuracy`, `f1`, `precision` and `recall`, with the axes in
+        `reduce` collapsed. With `thresholds_curve`, also `roc_auc` and `pr_auc`, as well as the
+        curves `roc_fpr`, `roc_tpr`, `pr_precision` and `pr_recall` along a leading axis.
 
     Example:
         >>> x = torch.rand(7, 1, 2, 128, 256) * 400  # (T, N, C, Y, X)
@@ -62,39 +62,39 @@ def hypoxia(
         >>> out["accuracy"].shape
         torch.Size([7, 2])
     """
+    reduce_axes = axes(dims, reduce)
+
+    # Classification scores need several samples, a pointwise score is meaningless
+    if len(reduce_axes) == 0:
+        raise ValueError("`reduce` must name at least one axis to score over.")
+
     x_threshold, y_threshold = thresholds
-    reduce_axes              = axes(dims, reduce)
-    tail                     = tuple(range(-len(reduce_axes), 0))
+    tail = tuple(range(-len(reduce_axes), 0))
 
-    y          = apply_mask(y, mask)
-    x          = apply_mask(x, mask).expand_as(y).movedim(reduce_axes, tail)
-    y          = y.movedim(reduce_axes, tail)
+    # Scores are computed by scikit-learn, hence on CPU
+    y = apply_mask(y, mask)
+    x = apply_mask(x, mask).expand_as(y).movedim(reduce_axes, tail)
+    y = y.movedim(reduce_axes, tail)
     kept_shape = x.shape[: -len(reduce_axes)]
-    n_kept     = prod(kept_shape)
-    x          = x.reshape(n_kept, -1)
-    y          = y.reshape(n_kept, -1)
+    n_kept = prod(kept_shape)
+    x = x.reshape(n_kept, -1).cpu()
+    y = y.reshape(n_kept, -1).cpu()
 
-    accuracy          = torch.full((n_kept,), torch.nan)
-    balanced_accuracy = torch.full((n_kept,), torch.nan)
-    f1                = torch.full((n_kept,), torch.nan)
-    precision         = torch.full((n_kept,), torch.nan)
-    recall            = torch.full((n_kept,), torch.nan)
-
+    scores = {
+        "accuracy": accuracy_score,
+        "balanced_accuracy": balanced_accuracy_score,
+        "f1": lambda true, pred: f1_score(true, pred, zero_division=0),
+        "precision": lambda true, pred: precision_score(true, pred, zero_division=0),
+        "recall": lambda true, pred: recall_score(true, pred, zero_division=0),
+    }
+    out = {name: torch.full((n_kept,), torch.nan) for name in scores}
     if thresholds_curve is not None:
-        n_curve      = len(thresholds_curve)
-        roc_fpr      = torch.full((n_curve, n_kept), torch.nan)
-        roc_tpr      = torch.full((n_curve, n_kept), torch.nan)
-        pr_precision = torch.full((n_curve, n_kept), torch.nan)
-        pr_recall    = torch.full((n_curve, n_kept), torch.nan)
-        roc_auc      = torch.full((n_kept,), torch.nan)
-        pr_auc       = torch.full((n_kept,), torch.nan)
+        curves = ("roc_fpr", "roc_tpr", "pr_precision", "pr_recall")
+        out |= {name: torch.full((len(thresholds_curve), n_kept), torch.nan) for name in curves}
+        out |= {name: torch.full((n_kept,), torch.nan) for name in ("roc_auc", "pr_auc")}
 
-    iterator = (
-        tqdm(range(n_kept), desc="Generating Curves", leave=False)
-        if thresholds_curve is not None
-        else range(n_kept)
-    )
-    for i in iterator:
+    curves_off = thresholds_curve is None
+    for i in tqdm(range(n_kept), desc="Generating Curves", leave=False, disable=curves_off):
         valid = ~x[i].isnan() & ~y[i].isnan()
         x_i, y_i = x[i, valid], y[i, valid]
         if x_i.numel() == 0:
@@ -102,14 +102,10 @@ def hypoxia(
 
         x_true = (x_i < x_threshold).long().numpy()
         y_pred = (y_i < y_threshold).long().numpy()
+        for name, score in scores.items():
+            out[name][i] = score(x_true, y_pred)
 
-        accuracy[i]          = accuracy_score(x_true, y_pred)
-        balanced_accuracy[i] = balanced_accuracy_score(x_true, y_pred)
-        f1[i]                = f1_score(x_true, y_pred, zero_division=0)
-        precision[i]         = precision_score(x_true, y_pred, zero_division=0)
-        recall[i]            = recall_score(x_true, y_pred, zero_division=0)
-
-        if thresholds_curve is None:
+        if curves_off:
             continue
 
         for t, threshold in enumerate(thresholds_curve):
@@ -118,41 +114,22 @@ def hypoxia(
             fp = ((y_pred_t == 1) & (x_true == 0)).sum()
             tn = ((y_pred_t == 0) & (x_true == 0)).sum()
             fn = ((y_pred_t == 0) & (x_true == 1)).sum()
-            roc_tpr[t, i]      = tp / (tp + fn) if (tp + fn) > 0 else float("nan")
-            roc_fpr[t, i]      = fp / (fp + tn) if (fp + tn) > 0 else float("nan")
-            pr_precision[t, i] = precision_score(x_true, y_pred_t, zero_division=0)
-            pr_recall[t, i]    = recall_score(x_true, y_pred_t, zero_division=0)
+            out["roc_tpr"][t, i] = tp / (tp + fn) if (tp + fn) > 0 else torch.nan
+            out["roc_fpr"][t, i] = fp / (fp + tn) if (fp + tn) > 0 else torch.nan
+            out["pr_precision"][t, i] = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            out["pr_recall"][t, i] = tp / (tp + fn) if (tp + fn) > 0 else 0.0
 
-        order      = roc_fpr[:, i].argsort()
-        roc_auc[i] = float(auc(roc_fpr[order, i], roc_tpr[order, i]))
-        order      = pr_recall[:, i].argsort()
-        pr_auc[i]  = float(auc(pr_recall[order, i], pr_precision[order, i]))
+        fpr, tpr = out["roc_fpr"][:, i], out["roc_tpr"][:, i]
+        out["roc_auc"][i] = float(auc(fpr[fpr.argsort()], tpr[fpr.argsort()]))
+        precision, recall = out["pr_precision"][:, i], out["pr_recall"][:, i]
+        out["pr_auc"][i] = float(auc(recall[recall.argsort()], precision[recall.argsort()]))
 
-    out = {
-        "accuracy":          accuracy.reshape(kept_shape),
-        "balanced_accuracy": balanced_accuracy.reshape(kept_shape),
-        "f1":                f1.reshape(kept_shape),
-        "precision":         precision.reshape(kept_shape),
-        "recall":            recall.reshape(kept_shape),
-    }
-    if thresholds_curve is not None:
-        out |= {
-            "roc_fpr":      roc_fpr.reshape(n_curve, *kept_shape),
-            "roc_tpr":      roc_tpr.reshape(n_curve, *kept_shape),
-            "roc_auc":      roc_auc.reshape(kept_shape),
-            "pr_precision": pr_precision.reshape(n_curve, *kept_shape),
-            "pr_recall":    pr_recall.reshape(n_curve, *kept_shape),
-            "pr_auc":       pr_auc.reshape(kept_shape),
-        }
-    return out
+    return {name: value.reshape(*value.shape[:-1], *kept_shape) for name, value in out.items()}
 
 
 def vertically_averaged_oxygen(
-        oxygen_data: Tensor,
-        measured_depths: Tensor,
-        mask: Tensor | None = None
+    oxygen_data: Tensor, measured_depths: Tensor, mask: Tensor | None = None
 ) -> Tensor:
-
     """Compute the vertically averaged oxygen concentration.
     Input:
         oxygen_data: Tensor of shape (dep, lat, lon) representing oxygen concentration at different depths.
@@ -164,7 +141,9 @@ def vertically_averaged_oxygen(
     """
 
     # compute the thickness of each layer
-    layer_thickness = torch.diff(measured_depths, dim=0, prepend=torch.tensor([0.0], device=measured_depths.device))
+    layer_thickness = torch.diff(
+        measured_depths, dim=0, prepend=torch.tensor([0.0], device=measured_depths.device)
+    )
 
     # compute the weighted average of oxygen concentration
     weighted_oxygen = oxygen_data[mask] * layer_thickness[:, None, None]
@@ -174,10 +153,10 @@ def vertically_averaged_oxygen(
 
 
 def thickness_bottom_hypoxia(
-        oxygen_data: Tensor,
-        measured_depths: Tensor,
-        mask: Tensor | None = None,
-        threshold: float = 63.0
+    oxygen_data: Tensor,
+    measured_depths: Tensor,
+    mask: Tensor | None = None,
+    threshold: float = 63.0,
 ) -> Tensor:
     """Compute the thickness of the bottom hypoxic layer.
     Input:
@@ -199,21 +178,22 @@ def thickness_bottom_hypoxia(
         general_mask = general_mask & mask
 
     # Compute the thickness of each layer
-    layer_thickness = torch.diff(measured_depths, dim=0, prepend=torch.tensor([0.0], device=measured_depths.device))
+    layer_thickness = torch.diff(
+        measured_depths, dim=0, prepend=torch.tensor([0.0], device=measured_depths.device)
+    )
 
     # From the hypoxic mask and layer thickness, compute the thickness of the bottom hypoxic layer
     bottom_hypoxic_thickness = torch.zeros_like(oxygen_data[0], device=oxygen_data.device)
     for i in range(oxygen_data.shape[0]):
         bottom_hypoxic_thickness += hypoxic_mask[i] * layer_thickness[i]
 
-
     return bottom_hypoxic_thickness
 
 
 def oxygen_partial_pressure(
-        oxygen_data: Tensor,
-        salinity_data: Tensor,
-        temperature_data: Tensor,
+    oxygen_data: Tensor,
+    salinity_data: Tensor,
+    temperature_data: Tensor,
 ) -> Tensor:
     """Compute the partial pressure of oxygen (pO2) from oxygen concentration.
     Input:
@@ -227,7 +207,9 @@ def oxygen_partial_pressure(
     """
 
     # compute Henry's Law constant from temperature and salinity
-    henry_constant = 0.0001 * (1 + 0.032 * salinity_data) * torch.exp(-0.02 * temperature_data)  ## varify this formula
+    henry_constant = (
+        0.0001 * (1 + 0.032 * salinity_data) * torch.exp(-0.02 * temperature_data)
+    )  ## varify this formula
 
     po2 = oxygen_data / henry_constant
 
@@ -235,9 +217,7 @@ def oxygen_partial_pressure(
 
 
 def oxygen_saturation(
-        temperature_data: Tensor,
-        salinity_data: Tensor,
-        pressure_data: Tensor
+    temperature_data: Tensor, salinity_data: Tensor, pressure_data: Tensor
 ) -> Tensor:
     """Compute the oxygen saturation from oxygen concentration.
     Input:
@@ -249,16 +229,18 @@ def oxygen_saturation(
     """
 
     ## to check
-    o2_saturated = 14.6 * torch.exp(-0.02 * temperature_data) * (1 - 0.032 * salinity_data) * torch.exp(-0.0001 * pressure_data)  ## varify this formula
+    o2_saturated = (
+        14.6
+        * torch.exp(-0.02 * temperature_data)
+        * (1 - 0.032 * salinity_data)
+        * torch.exp(-0.0001 * pressure_data)
+    )  ## varify this formula
 
     return o2_saturated
 
 
 def oxygen_solubility(
-        oxygen_data: Tensor,
-        temperature_data: Tensor,
-        salinity_data: Tensor,
-        pressure_data: Tensor
+    oxygen_data: Tensor, temperature_data: Tensor, salinity_data: Tensor, pressure_data: Tensor
 ) -> Tensor:
     """Compute the oxygen solubility from oxygen concentration, temperature and salinity, and pressure.
     Input:
@@ -274,11 +256,9 @@ def oxygen_solubility(
     solubility = oxygen_data / o2_saturation
     return solubility
 
+
 def apparent_oxygen_utilization(
-        oxygen_data: Tensor,
-        temperature_data: Tensor,
-        salinity_data: Tensor,
-        pressure_data: Tensor
+    oxygen_data: Tensor, temperature_data: Tensor, salinity_data: Tensor, pressure_data: Tensor
 ) -> Tensor:
     """Compute the apparent oxygen utilization (AOU) from oxygen concentration.
     Input:

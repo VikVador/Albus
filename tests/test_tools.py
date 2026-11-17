@@ -1,5 +1,6 @@
 r"""Tests for albus.tools."""
 
+import pytest
 import torch
 
 from albus.tools import *
@@ -20,9 +21,20 @@ def test_axes_reordered() -> None:
     assert axes("T N C Y X", "X Y") == (4, 3)
 
 
+def test_axes_unknown_name() -> None:
+    r"""Raises an explicit error when a requested axis is not in `dims`."""
+    with pytest.raises(AssertionError, match="Axis 'N' is not in dims"):
+        axes("T C Y X", "N")
+
+
 def test_drop() -> None:
     r"""Removes the named axis from a dims string."""
     assert drop("T N C Y X", "N") == "T C Y X"
+
+
+def test_drop_several_names() -> None:
+    r"""Removes every named axis from a dims string, whatever their order."""
+    assert drop("T N C Y X", "X N Y") == "T C"
 
 
 def test_drop_missing_name_is_noop() -> None:
@@ -51,3 +63,15 @@ def test_apply_mask_none_is_identity() -> None:
     r"""Returns the input tensor unchanged when no mask is given."""
     x = torch.randn(3, 3)
     assert torch.equal(apply_mask(x, None), x)
+
+
+def test_nanmean_ignores_nans() -> None:
+    r"""Averages over the given axes, skipping NaN entries."""
+    x = torch.tensor([[1.0, float("nan"), 3.0], [4.0, 5.0, 6.0]])
+    assert torch.equal(nanmean(x, dim=(1,)), torch.tensor([2.0, 5.0]))
+
+
+def test_nanmean_empty_dim_is_identity() -> None:
+    r"""Returns the input tensor unchanged when no axis is given, unlike torch."""
+    x = torch.randn(3, 4)
+    assert torch.equal(nanmean(x, dim=()), x)
